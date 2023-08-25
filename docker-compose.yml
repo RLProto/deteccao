@@ -22,8 +22,8 @@ services:
     image: rlproto/deteccao:send_frame-v1.0  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g1
     environment:
-      NODE_RED_ENDPOINT: 'http://10.18.160.2:1880/endpointG1'
-      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1880/heartbeatG1'
+      NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG1'
+      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG1'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.51:554"
       SAVE_PATH: '/app/data/'
     ports:
@@ -35,14 +35,14 @@ services:
     volumes:
       - g1:/app/data
     restart: unless-stopped 
-    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3001"
+    command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3001"
 
   send_frame_g2:
     image: rlproto/deteccao:send_frame-v1.0  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g2
     environment:
-      NODE_RED_ENDPOINT: 'http://10.18.160.2:1880/endpointG2'
-      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1880/heartbeatG2'
+      NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG2'
+      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG2'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.52:554"
       SAVE_PATH: '/app/data/'
     ports:
@@ -54,14 +54,14 @@ services:
     volumes:
       - g2:/app/data
     restart: unless-stopped 
-    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3002"
+    command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3002"
 
   send_frame_g3:
     image: rlproto/deteccao:send_frame-v1.0  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g3
     environment:
-      NODE_RED_ENDPOINT: 'http://10.18.160.2:1880/endpointG3'
-      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1880/heartbeatG3'
+      NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG3'
+      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG3'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.53:554"
       SAVE_PATH: '/app/data/'
     ports:
@@ -73,14 +73,14 @@ services:
     volumes:
       - g3:/app/data
     restart: unless-stopped 
-    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3003"
+    command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3003"
 
   send_frame_g4:
     image: rlproto/deteccao:send_frame-v1.0  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g4
     environment:
-      NODE_RED_ENDPOINT: 'http://10.18.160.2:1880/endpointG4'
-      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1880/heartbeatG4'
+      NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG4'
+      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG4'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.50:554"
       SAVE_PATH: '/app/data/'
     ports:
@@ -92,7 +92,7 @@ services:
     volumes:
       - g4:/app/data
     restart: unless-stopped 
-    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3004"
+    command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3004"
   
 networks:
   network:
