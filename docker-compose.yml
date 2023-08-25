@@ -1,0 +1,106 @@
+version: '3'
+services:
+  process_frame:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    image: process_frame  # Use the existing 'send_frame' image
+    container_name: process_frame
+    ports:
+      - "8000:8000"
+    networks:
+      - network  # Specify the custom network
+    volumes:
+      - process:/app/process  # Mount the volume
+    restart: unless-stopped 
+
+  send_frame_g1:
+    image: send_frame  # Use the existing 'send_frame' image
+    container_name: send_frame_g1
+    environment:
+      NODE_RED_ENDPOINT: 'http://172.20.128.1:1880/endpointG1'
+      HEARTBEAT_ENDPOINT: 'http://172.20.128.1:1880/heartbeatG1'
+      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.51:554"
+      SAVE_PATH: '/app/data/'
+    ports:
+      - "3001:3001"
+    depends_on:
+      - process_frame
+    networks:
+      - network
+    volumes:
+      - g1:/app/data
+    restart: unless-stopped 
+    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3001"
+
+  send_frame_g2:
+    image: send_frame  # Use the existing 'send_frame' image
+    container_name: send_frame_g2
+    environment:
+      NODE_RED_ENDPOINT: 'http://172.20.128.1:1880/endpointG2'
+      HEARTBEAT_ENDPOINT: 'http://172.20.128.1:1880/heartbeatG2'
+      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.52:554"
+      SAVE_PATH: '/app/data/'
+    ports:
+      - "3002:3002"
+    depends_on:
+      - process_frame
+    networks:
+      - network
+    volumes:
+      - g2:/app/data
+    restart: unless-stopped 
+    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3002"
+
+  send_frame_g3:
+    image: send_frame  # Use the existing 'send_frame' image
+    container_name: send_frame_g3
+    environment:
+      NODE_RED_ENDPOINT: 'http://172.20.128.1:1880/endpointG3'
+      HEARTBEAT_ENDPOINT: 'http://172.20.128.1:1880/heartbeatG3'
+      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.53:554"
+      SAVE_PATH: '/app/data/'
+    ports:
+      - "3003:3003"
+    depends_on:
+      - process_frame
+    networks:
+      - network
+    volumes:
+      - g3:/app/data
+    restart: unless-stopped 
+    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3003"
+
+  send_frame_g4:
+    image: send_frame  # Use the existing 'send_frame' image
+    container_name: send_frame_g4
+    environment:
+      NODE_RED_ENDPOINT: 'http://172.20.128.1:1880/endpointG4'
+      HEARTBEAT_ENDPOINT: 'http://172.20.128.1:1880/heartbeatG4'
+      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.50:554"
+      SAVE_PATH: '/app/data/'
+    ports:
+      - "3004:3004"
+    depends_on:
+      - process_frame
+    networks:
+      - network
+    volumes:
+      - g4:/app/data
+    restart: unless-stopped 
+    command: sh -c "sleep 5 && uvicorn send_frame:app --host 0.0.0.0 --port 3004"
+  
+networks:
+  network:
+    driver: bridge  # Specify the network driver, e.g., bridge
+
+volumes:
+  process:  # Define the 'process' volume
+  g1:  # Define the 'g1' volume
+  g2:  # Define the 'g2' volume
+  g3:  # Define the 'g3' volume
+  g4:  # Define the 'g4' volume
