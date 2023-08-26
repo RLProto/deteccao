@@ -1,14 +1,13 @@
 import cv2
 import requests
 import numpy as np
-from queue import Queue
+import queue
 import threading
 import time
 import datetime
 import logging
-from fastapi import FastAPI, File, UploadFile, HTTPException
-import datetime
 import os
+from fastapi import FastAPI, File, UploadFile, HTTPException
 
 app = FastAPI()  # Create an instance of the FastAPI class
 
@@ -33,13 +32,14 @@ api_url = 'http://process_frame:8000/process_frame'
 class VideoCapture:
     def __init__(self, url):
         self.cap = cv2.VideoCapture(url)
-        self.q = Queue(maxsize=10)  # adjust size as needed
+        self.q = queue.Queue(maxsize=10)  # adjust size as needed
         t = threading.Thread(target=self._reader)
         t.daemon = True
         t.start()
     
     def release(self):
-        self.cap.release()
+        if self.cap is not None:
+            self.cap.release()
 
     # read frames as soon as they are available, keeping only most recent one
     def _reader(self):
@@ -50,7 +50,7 @@ class VideoCapture:
             if not self.q.empty():
                 try:
                     self.q.get_nowait()   # discard previous (unprocessed) frame
-                except Queue.Empty:
+                except queue.Empty:
                     pass
             self.q.put((ret, frame))
 
@@ -58,9 +58,6 @@ class VideoCapture:
         return self.q.get()
     
 cap = VideoCapture(camera_ip)
-# Open the video file
-#video_path = "/app/videos/teste2pessoas.avi"
-#cap = cv2.VideoCapture(video_path)
 
 def send_to_node_red(scores):
 
@@ -87,9 +84,6 @@ heartbeat_interval = 60
 # Initialize the heartbeat variables
 last_heartbeat_time = time.time()
 
-# Initialize the time counting
-last_send_time = time.time()
-
 # Function to send heartbeat to Node-RED
 def send_heartbeat():
     global last_heartbeat_time
@@ -102,7 +96,7 @@ def send_heartbeat():
 
 
 def process_frames():
-    global ret, frame, cap, score
+    global ret, frame, cap
     while True:
         ret, frame = cap.read()
         while ret:
