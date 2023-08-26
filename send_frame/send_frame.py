@@ -24,7 +24,6 @@ save_path = os.getenv('SAVE_PATH')
 # Define the campera IP using an environment variable
 camera_ip = os.getenv('CAMERA_ENDPOINT')
 
-
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 
@@ -63,11 +62,11 @@ cap = VideoCapture(camera_ip)
 #video_path = "/app/videos/teste2pessoas.avi"
 #cap = cv2.VideoCapture(video_path)
 
-def send_to_node_red(results):
+def send_to_node_red(scores):
 
     # Send the class_id to Node-RED
     try:
-        response = requests.post(node_red_endpoint, json={'Score': results}, timeout=3)
+        response = requests.post(node_red_endpoint, json={'scores': scores}, timeout=3)
         response.close()  # make sure to close the connection after the request is made
     except requests.exceptions.RequestException as e:
         logging.info(f"Failed to send data to Node-RED: {e}")
