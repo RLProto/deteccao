@@ -23,6 +23,9 @@ save_path = os.getenv('SAVE_PATH')
 # Define the campera IP using an environment variable
 camera_ip = os.getenv('CAMERA_ENDPOINT')
 
+# Define the equipment name to put in the saved frame
+equipment = os.getenv('EQUIPMENT')
+
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 
@@ -149,7 +152,7 @@ threading.Thread(target=process_frames).start()
 async def save_current_frame():
     try:
         current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"{save_path}frame_{current_time}.jpg"  # Use the mounted volume path
+        filename = f"{save_path}{equipment}_{current_time}.jpg"  # Use the mounted volume path
 
         ret, frame = cap.read()
         cv2.imwrite(filename, frame)
