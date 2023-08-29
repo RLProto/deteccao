@@ -1,0 +1,9 @@
+
+sudo apt-get clean
+sudo apt-get autoclean
+sudo apt-get autoremove
+
+docker system prune -a
+
+
+optimize-vhd -Path "C:\Users\Proto\AppData\Local\Docker\wsl\data\ext4.vhdx" -Mode Full
