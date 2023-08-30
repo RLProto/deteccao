@@ -58,12 +58,14 @@ class VideoCapture:
         if self.cap is not None:
             self.cap.release()
 
-    # read frames as soon as they are available, keeping only most recent one
     def _reader(self):
         while True:
             ret, frame = self.cap.read()
             if not ret:
-                break
+                logging.critical("Camera disconnected. Attempting to reconnect.")
+                self.reconnect()
+                time.sleep(5)  # Wait for 5 seconds before attempting to read again
+                continue  # Skips the rest of the loop and jumps to the next iteration
             if not self.q.empty():
                 try:
                     self.q.get_nowait()   # discard previous (unprocessed) frame
@@ -111,16 +113,14 @@ def send_heartbeat():
         send_heartbeat_to_node_red(1)
         last_heartbeat_time = current_time
 
-
 def process_frames():
     global cap
     while True:
         ret, frame = cap.read()
         if not ret:
-            logging.critical("Camera disconnected. Attempting to reconnect.")
-            time.sleep(5)  # Wait for 5 seconds before attempting to reconnect
-            cap.reconnect()
-            continue  # Skips the rest of the loop and jumps to the next iteration
+            logging.critical("Failed to read a frame. Skipping this iteration.")
+            time.sleep(5)
+            continue
 
         # Send heartbeat to Node-RED
         send_heartbeat()
