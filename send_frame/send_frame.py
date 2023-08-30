@@ -34,12 +34,26 @@ api_url = 'http://process_frame:8000/process_frame'
 
 class VideoCapture:
     def __init__(self, url):
-        self.cap = cv2.VideoCapture(url)
-        self.q = queue.Queue(maxsize=10)  # adjust size as needed
+        self.url = url
+        self.connect()
+        self.q = queue.Queue(maxsize=10)
         t = threading.Thread(target=self._reader)
         t.daemon = True
         t.start()
-    
+
+    def connect(self):
+        self.cap = cv2.VideoCapture(self.url)
+        if not self.cap.isOpened():
+            logging.error("Failed to connect to the camera.")
+
+    def reconnect(self):
+        self.cap.release()
+        self.connect()
+        if self.cap.isOpened():
+            logging.info("Successfully reconnected to the camera.")
+        else:
+            logging.error("Failed to reconnect to the camera.")
+
     def release(self):
         if self.cap is not None:
             self.cap.release()
@@ -64,12 +78,12 @@ cap = VideoCapture(camera_ip)
 
 def send_to_node_red(scores):
 
-    # Send the class_id to Node-RED
+    # Send the scores to Node-RED
     try:
         response = requests.post(node_red_endpoint, json={'scores': scores}, timeout=3)
         response.close()  # make sure to close the connection after the request is made
     except requests.exceptions.RequestException as e:
-        logging.info(f"Failed to send data to Node-RED: {e}")
+        logging.error(f"Failed to send data to Node-RED: {e}")
 
 # Function to send heartbeat to Node-RED
 def send_heartbeat_to_node_red(heartbeat):
@@ -79,7 +93,7 @@ def send_heartbeat_to_node_red(heartbeat):
         response = requests.post(heartbeat_endpoint, json={'heartbeat': heartbeat}, timeout=3)
         response.close()  # make sure to close the connection after the request is made
     except requests.exceptions.RequestException as e:
-        logging.info(f"Failed to send heartbeat to Node-RED: {e}")
+        logging.error(f"Failed to send heartbeat to Node-RED: {e}")
 
 # Define the heartbeat interval in seconds
 heartbeat_interval = 60
@@ -99,49 +113,46 @@ def send_heartbeat():
 
 
 def process_frames():
-    global ret, frame, cap
+    global cap
     while True:
         ret, frame = cap.read()
-        while ret:
+        if not ret:
+            logging.critical("Camera disconnected. Attempting to reconnect.")
+            time.sleep(5)  # Wait for 5 seconds before attempting to reconnect
+            cap.reconnect()
+            continue  # Skips the rest of the loop and jumps to the next iteration
 
-            # Send heartbeat to Node-RED
-            send_heartbeat()
+        # Send heartbeat to Node-RED
+        send_heartbeat()
 
-            # Convert the frame to bytes
-            _, image_bytes = cv2.imencode('.jpg', frame)
-            image_bytes = image_bytes.tobytes()
+        # Convert the frame to bytes
+        _, image_bytes = cv2.imencode('.jpg', frame)
+        image_bytes = image_bytes.tobytes()
 
-            # Send the image as a POST request
-            response = requests.post(api_url, files={'file': image_bytes})
+        # Send the image as a POST request
+        response = requests.post(api_url, files={'file': image_bytes})
 
-            # Check the response
-            if response.status_code == 200:
-                result = response.json()
+        # Check the response
+        if response.status_code == 200:
+            result = response.json()
 
-                # Check if detection scores are present in the response
-                if 'detection_scores' in result:
-                    detection_scores = result['detection_scores']
-                    if detection_scores:
-                        logging.info("Detection Scores:") 
-                        logging.info(detection_scores)  # Log all detection scores as an array
-                        # Send results to Node-RED as a single array
-                        send_to_node_red(detection_scores)
-                    else:
-                        logging.info("No detection scores returned.")
+            # Check if detection scores are present in the response
+            if 'detection_scores' in result:
+                detection_scores = result['detection_scores']
+                if detection_scores:
+                    logging.info("Detection Scores:")
+                    logging.info(detection_scores)  # Log all detection scores as an array
+                    # Send results to Node-RED as a single array
+                    send_to_node_red(detection_scores)
                 else:
-                    logging.info("No detection scores in the response.")
-
+                    logging.info("No detection scores returned.")
             else:
-                logging.info(f"Failed with status code: {response.status_code}")
+                logging.critical("No detection scores in the response.")
+        else:
+            logging.error(f"Failed with status code: {response.status_code}")
 
-            # Introduce a 1-second delay before reading the next frame
-            time.sleep(1)
-            ret, frame = cap.read()
-
-        # Release the video file
-        cap.release()
-        cap = VideoCapture(camera_ip)
-        ret, frame = cap.read()
+        # Introduce a 1-second delay before reading the next frame
+        time.sleep(1)
 
 # Start processing frames
 threading.Thread(target=process_frames).start()
