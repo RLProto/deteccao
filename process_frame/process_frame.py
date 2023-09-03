@@ -15,7 +15,7 @@ app = FastAPI(
 )
 
 # Load the YOLO model
-model = YOLO(r'/app/last.pt')
+model = YOLO(r'/app/best.pt')
 
 @app.post("/process_frame", summary="Process and display an image")
 async def process_frame(file: UploadFile):
