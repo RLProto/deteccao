@@ -84,7 +84,7 @@ services:
     environment:
       NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG4'
       HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG4'
-      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.33:554"
+      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.50:554"
       EQUIPMENT: "G4"
       SAVE_PATH: '/app/data/'
     ports:
