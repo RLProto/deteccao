@@ -1,4 +1,5 @@
 
+NO WSL
 sudo apt-get clean
 sudo apt-get autoclean
 sudo apt-get autoremove
@@ -6,5 +7,7 @@ sudo apt-get autoremove
 docker system prune -a
 docker volume prune
 
+NO POWERSHELL
+wsl --shutdown
 optimize-vhd -Path "C:\Users\Proto\AppData\Local\Docker\wsl\data\ext4.vhdx" -Mode Full
 optimize-vhd -Path "C:\Users\Administrator\AppData\Local\Docker\wsl\data\ext4.vhdx" -Mode Full
