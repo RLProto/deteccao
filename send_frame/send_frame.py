@@ -32,8 +32,8 @@ equipment = os.getenv('EQUIPMENT')
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 
 # Define constants for backoff and retries
-max_retries = os.getenv('MAX_RETRIES')
-backoff_factor = os.getenv('BACKOFF_FACTOR')
+max_retries = int(os.getenv('MAX_RETRIES'))
+backoff_factor = float(os.getenv('BACKOFF_FACTOR'))
 
 # URL of the API
 api_url = 'http://process_frame:8000/process_frame'
