@@ -8,7 +8,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    image: rlproto/deteccao:process_frame-v1.4  # Use the existing 'process_frame' image from Docker Hub
+    image: rlproto/deteccao:process_frame-v1.5  # Use the existing 'process_frame' image from Docker Hub
     container_name: process_frame
     ports:
       - "8000:8000"
@@ -19,13 +19,15 @@ services:
     restart: unless-stopped 
 
   send_frame_g1:
-    image: rlproto/deteccao:send_frame-v1.4  # Use the existing 'send_frame' image from Docker Hub
+    image: rlproto/deteccao:send_frame-v1.5  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g1
     environment:
       NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG1'
       HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG1'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.51:554"
       EQUIPMENT: "G1"
+      MAX_RETRIES: 5
+      BACKOFF_FACTOR: 2
       SAVE_PATH: '/app/data/'
     ports:
       - "3001:3001"
@@ -39,13 +41,15 @@ services:
     command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3001"
 
   send_frame_g2:
-    image: rlproto/deteccao:send_frame-v1.4  # Use the existing 'send_frame' image from Docker Hub
+    image: rlproto/deteccao:send_frame-v1.5  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g2
     environment:
       NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG2'
       HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG2'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.52:554"
       EQUIPMENT: "G2"
+      MAX_RETRIES: 6
+      BACKOFF_FACTOR: 2
       SAVE_PATH: '/app/data/'
     ports:
       - "3002:3002"
@@ -59,13 +63,15 @@ services:
     command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3002"
 
   send_frame_g3:
-    image: rlproto/deteccao:send_frame-v1.4  # Use the existing 'send_frame' image from Docker Hub
+    image: rlproto/deteccao:send_frame-v1.5  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g3
     environment:
       NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG3'
       HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG3'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.53:554"
       EQUIPMENT: "G3"
+      MAX_RETRIES: 5
+      BACKOFF_FACTOR: 3
       SAVE_PATH: '/app/data/'
     ports:
       - "3003:3003"
@@ -79,13 +85,15 @@ services:
     command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3003"
 
   send_frame_g4:
-    image: rlproto/deteccao:send_frame-v1.4  # Use the existing 'send_frame' image from Docker Hub
+    image: rlproto/deteccao:send_frame-v1.5  # Use the existing 'send_frame' image from Docker Hub
     container_name: send_frame_g4
     environment:
       NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG4'
       HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG4'
       CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.50:554"
       EQUIPMENT: "G4"
+      MAX_RETRIES: 4
+      BACKOFF_FACTOR: 4
       SAVE_PATH: '/app/data/'
     ports:
       - "3004:3004"

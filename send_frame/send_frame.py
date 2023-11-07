@@ -9,6 +9,8 @@ import logging
 import os
 from fastapi import FastAPI, File, UploadFile, HTTPException
 
+import random
+
 app = FastAPI()  # Create an instance of the FastAPI class
 
 # Define the Node-RED endpoint URL using an environment variable
@@ -28,6 +30,10 @@ equipment = os.getenv('EQUIPMENT')
 
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
+
+# Define constants for backoff and retries
+max_retries = os.getenv('MAX_RETRIES')
+backoff_factor = os.getenv('BACKOFF_FACTOR')
 
 # URL of the API
 api_url = 'http://process_frame:8000/process_frame'
@@ -113,48 +119,71 @@ def send_heartbeat():
         send_heartbeat_to_node_red(1)
         last_heartbeat_time = current_time
 
+# Function to send a frame to the API with retry and backoff mechanism
+def send_frame_to_api(image_bytes, retries=max_retries):
+    for attempt in range(retries):
+        try:
+            response = requests.post(api_url, files={'file': image_bytes}, timeout=10)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logging.error(f"Failed with status code: {response.status_code}")
+        except (requests.exceptions.RequestException) as e:
+            if attempt < retries - 1:
+                wait_time = exponential_backoff(attempt)
+                logging.warning(f"API connection failed. Retrying in {wait_time:.2f} seconds...")
+                time.sleep(wait_time)
+                continue
+            else:
+                logging.error(f"Failed to connect to the API after {retries} attempts.")
+                return None
+
+# Function to perform exponential backoff
+def exponential_backoff(attempt):
+    return backoff_factor * (2 ** attempt) + random.uniform(0, 0.1 * (2 ** attempt))
+
+# Define the process_frames function to process video frames
 def process_frames():
     global cap
+
     while True:
+        # Attempt to read a frame from the video source
         ret, frame = cap.read()
         if not ret:
+            # If reading the frame fails, log an error and wait for 5 seconds before the next attempt
             logging.critical("Failed to read a frame. Skipping this iteration.")
             time.sleep(5)
             continue
 
-        # Send heartbeat to Node-RED
+        # Send a heartbeat signal to Node-RED to indicate the system is active
         send_heartbeat()
 
-        # Convert the frame to bytes
+        # Convert the frame to JPEG format and get its bytes
         _, image_bytes = cv2.imencode('.jpg', frame)
         image_bytes = image_bytes.tobytes()
 
-        # Send the image as a POST request
-        response = requests.post(api_url, files={'file': image_bytes})
-
-        # Check the response
-        if response.status_code == 200:
-            result = response.json()
-
-            # Check if detection scores are present in the response
-            if 'detection_scores' in result:
-                detection_scores = result['detection_scores']
-                if detection_scores:
-                    logging.info("Detection Scores:")
-                    logging.info(detection_scores)  # Log all detection scores as an array
-                    # Send results to Node-RED as a single array
-                    send_to_node_red(detection_scores)
-                else:
-                    logging.info("No detection scores returned.")
+        # Send the frame to the API and handle the response
+        result = send_frame_to_api(image_bytes)
+        if result:
+            # Check if there are detection scores in the response
+            detection_scores = result.get('detection_scores', [])
+            if detection_scores:
+                # Log the detection scores
+                logging.info("Detection Scores:")
+                logging.info(detection_scores)
+                # Send the detection scores to Node-RED
+                send_to_node_red(detection_scores)
             else:
-                logging.critical("No detection scores in the response.")
+                # If there are no detection scores in the response, log it
+                logging.info("No detection scores returned.")
         else:
-            logging.error(f"Failed with status code: {response.status_code}")
+            # If the frame processing fails, log an error
+            logging.error("Failed to process frame data.")
 
         # Introduce a 1-second delay before reading the next frame
         time.sleep(1)
 
-# Start processing frames
+# Start processing frames in a separate thread
 threading.Thread(target=process_frames).start()
 
 
