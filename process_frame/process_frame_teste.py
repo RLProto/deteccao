@@ -18,12 +18,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-model = YOLO(r'/app/best.pt')
+model = YOLO(r'./yolov8s.pt')
 
 g1_uri = os.getenv('G1_URI')
 g2_uri = os.getenv('G2_URI')
 g3_uri = os.getenv('G3_URI')
 g4_uri = os.getenv('G4_URI')
+
+g1_uri = "ws://192.168.137.1:8765"
+g3_uri = "ws://192.168.137.1:8766"
 
 source_to_uri = {
     "G1": g1_uri,

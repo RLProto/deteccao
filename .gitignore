@@ -1,0 +1,4 @@
+.vscode/
+video_stream/
+process_frame/venv/
+send_frame/venv/

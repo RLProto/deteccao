@@ -8,34 +8,45 @@ import datetime
 import logging
 import os
 from fastapi import FastAPI, File, UploadFile, HTTPException
+
 import random
 
 app = FastAPI()  # Create an instance of the FastAPI class
 
 # Define the Node-RED endpoint URL using an environment variable
 node_red_endpoint = os.getenv('NODE_RED_ENDPOINT')
+node_red_endpoint = 'http://192.168.137.1:1880/endpointG1'
 
 # Define the heartbeat endpoint URL using an environment variable
 heartbeat_endpoint = os.getenv('HEARTBEAT_ENDPOINT')
+heartbeat_endpoint = 'http://192.168.137.1:1880/heartbeatG1'
 
 # Define the save path using an environment variable
 save_path = os.getenv('SAVE_PATH')
 
 # Define the campera IP using an environment variable
 camera_ip = os.getenv('CAMERA_ENDPOINT')
+camera_ip = "rtsp://teste:Ambev123@192.168.137.109:554/cam/realmonitor?channel=1&subtype=1"
 
 # Define the equipment name to put in the saved frame
 equipment = os.getenv('EQUIPMENT')
+equipment= 'G3'
+
+
+
 
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 
 # Define constants for backoff and retries
-max_retries = int(os.getenv('MAX_RETRIES'))
-backoff_factor = float(os.getenv('BACKOFF_FACTOR'))
+#max_retries = int(os.getenv('MAX_RETRIES'))
+max_retries = 5
+#backoff_factor = float(os.getenv('BACKOFF_FACTOR'))
+backoff_factor = 2
 
 # URL of the API
 api_url = 'http://process_frame:8000/process_frame'
+api_url = 'http://192.168.137.1:8000/process_frame'
 
 class VideoCapture:
     def __init__(self, url):
@@ -181,7 +192,7 @@ def process_frames():
             logging.error("Failed to process frame data.")
 
         # Introduce a 1-second delay before reading the next frame
-        time.sleep(0.5)
+        time.sleep(0.1)
 
 # Start processing frames in a separate thread
 threading.Thread(target=process_frames).start()
