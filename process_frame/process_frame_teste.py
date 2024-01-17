@@ -25,8 +25,8 @@ g2_uri = os.getenv('G2_URI')
 g3_uri = os.getenv('G3_URI')
 g4_uri = os.getenv('G4_URI')
 
-g1_uri = "ws://192.168.137.1:8765"
-g3_uri = "ws://192.168.137.1:8766"
+g3_uri = "ws://192.168.137.1:8080"
+g4_uri = "ws://192.168.137.1:4004"
 
 source_to_uri = {
     "G1": g1_uri,

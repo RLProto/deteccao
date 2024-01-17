@@ -30,7 +30,7 @@ camera_ip = "rtsp://teste:Ambev123@192.168.137.109:554/cam/realmonitor?channel=1
 
 # Define the equipment name to put in the saved frame
 equipment = os.getenv('EQUIPMENT')
-equipment= 'G3'
+equipment= 'G4'
 
 
 

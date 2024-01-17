@@ -24,12 +24,16 @@ g1_uri = os.getenv('G1_URI')
 g2_uri = os.getenv('G2_URI')
 g3_uri = os.getenv('G3_URI')
 g4_uri = os.getenv('G4_URI')
+g4_mez = os.getenv('G4_MEZ')
+utilidades = os.getenv('UTILIDADES')
 
 source_to_uri = {
     "G1": g1_uri,
     "G2": g2_uri,
     "G3": g3_uri,
     "G4": g4_uri,
+    "G4_MEZ": g4_mez,
+    "UTILIDADES": utilidades,
 }
 
 # Function to handle WebSocket connection
