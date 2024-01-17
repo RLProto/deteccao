@@ -11,12 +11,12 @@ services:
     image: rlproto/deteccao:process_frame-v1.5  # Use the existing 'process_frame' image from Docker Hub
     container_name: process_frame
     environment:
-      - G1_URI: "ws://192.168.0.21:4001"
-      - G2_URI: "ws://192.168.0.21:4002"
-      - G3_URI: "ws://192.168.0.23:4003"
-      - G4_URI: "ws://192.168.0.23:4004"
-      - G4_MEZ: "ws://192.168.0.23:80"
-      - utilidades: "ws://192.168.0.23:8080"
+      G1_URI: "ws://192.168.0.21:4001"
+      G2_URI: "ws://192.168.0.21:4002"
+      G3_URI: "ws://192.168.0.23:4003"
+      G4_URI: "ws://192.168.0.23:4004"
+      G4_MEZ: "ws://192.168.0.23:80"
+      utilidades: "ws://192.168.0.23:8080"
     ports:
       - "8000:8000"
     networks:
