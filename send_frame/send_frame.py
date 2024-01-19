@@ -27,6 +27,9 @@ camera_ip = os.getenv('CAMERA_ENDPOINT')
 # Define the equipment name to put in the saved frame
 equipment = os.getenv('EQUIPMENT')
 
+# Define the equipment name to put in the saved frame
+delay_between_frames = os.getenv('DELAY')
+
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 
@@ -166,10 +169,8 @@ def process_frames():
         if result:
             # Check if there are detection scores in the response
             detection_scores = result.get('detection_scores', [])
-            print(detection_scores)
             if detection_scores:
                 # Log the detection scores
-                logging.info("Detection Scores:")
                 logging.info(detection_scores)
                 # Send the detection scores to Node-RED
                 send_to_node_red(detection_scores)

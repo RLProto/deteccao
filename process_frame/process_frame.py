@@ -20,20 +20,13 @@ app = FastAPI(
 
 model = YOLO(r'/app/best.pt')
 
-g1_uri = os.getenv('G1_URI')
-g2_uri = os.getenv('G2_URI')
-g3_uri = os.getenv('G3_URI')
-g4_uri = os.getenv('G4_URI')
-g4_mez = os.getenv('G4_MEZ')
-utilidades = os.getenv('UTILIDADES')
-
 source_to_uri = {
-    "G1": g1_uri,
-    "G2": g2_uri,
-    "G3": g3_uri,
-    "G4": g4_uri,
-    "G4_MEZ": g4_mez,
-    "UTILIDADES": utilidades,
+    "G1": os.getenv('G1_URI'),
+    "G2": os.getenv('G2_URI'),
+    "G3": os.getenv('G3_URI'),
+    "G4": os.getenv('G4_URI'),
+    "G4_MEZ": os.getenv('G4_MEZ'),
+    "UTILIDADES": os.getenv('UTILIDADES'),
 }
 
 # Function to handle WebSocket connection

@@ -36,6 +36,7 @@ services:
       MAX_RETRIES: 5
       BACKOFF_FACTOR: 2
       SAVE_PATH: '/app/data/'
+      DELAY: 0.5
     ports:
       - "3001:3001"
     depends_on:
@@ -58,6 +59,7 @@ services:
       MAX_RETRIES: 6
       BACKOFF_FACTOR: 2
       SAVE_PATH: '/app/data/'
+      DELAY: 0.5
     ports:
       - "3002:3002"
     depends_on:

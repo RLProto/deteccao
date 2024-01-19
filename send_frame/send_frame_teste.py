@@ -98,7 +98,7 @@ def send_to_node_red(scores):
 
     # Send the scores to Node-RED
     try:
-        response = requests.post(node_red_endpoint, json={'scores': scores}, timeout=3)
+        response = requests.post(node_red_endpoint, json={'detections': scores}, timeout=3)
         response.close()  # make sure to close the connection after the request is made
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to send data to Node-RED: {e}")
@@ -177,10 +177,8 @@ def process_frames():
         if result:
             # Check if there are detection scores in the response
             detection_scores = result.get('detection_scores', [])
-            print(detection_scores)
             if detection_scores:
                 # Log the detection scores
-                logging.info("Detection Scores:")
                 logging.info(detection_scores)
                 # Send the detection scores to Node-RED
                 send_to_node_red(detection_scores)
@@ -192,7 +190,7 @@ def process_frames():
             logging.error("Failed to process frame data.")
 
         # Introduce a 1-second delay before reading the next frame
-        time.sleep(0.1)
+        time.sleep(5)
 
 # Start processing frames in a separate thread
 threading.Thread(target=process_frames).start()
