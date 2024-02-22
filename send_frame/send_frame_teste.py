@@ -190,7 +190,7 @@ def process_frames():
             logging.error("Failed to process frame data.")
 
         # Introduce a 1-second delay before reading the next frame
-        time.sleep(5)
+        time.sleep(0.5)
 
 # Start processing frames in a separate thread
 threading.Thread(target=process_frames).start()
