@@ -26,14 +26,11 @@ save_path = os.getenv('SAVE_PATH')
 
 # Define the campera IP using an environment variable
 camera_ip = os.getenv('CAMERA_ENDPOINT')
-camera_ip = "rtsp://teste:Ambev123@192.168.137.109:554/cam/realmonitor?channel=1&subtype=1"
+camera_ip = "rtsp://teste:Ambev123@192.168.137.109:554/cam/realmonitor?channel=1&subtype=0"
 
 # Define the equipment name to put in the saved frame
 equipment = os.getenv('EQUIPMENT')
-equipment= 'G4'
-
-
-
+equipment= 'G3'
 
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -190,7 +187,7 @@ def process_frames():
             logging.error("Failed to process frame data.")
 
         # Introduce a 1-second delay before reading the next frame
-        time.sleep(0.5)
+        time.sleep(2)
 
 # Start processing frames in a separate thread
 threading.Thread(target=process_frames).start()

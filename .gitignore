@@ -1,4 +1,6 @@
 .vscode/
-video_stream/
+video_stream/build
+video_stream/dist
+video_stream/venv
 process_frame/venv/
 send_frame/venv/
