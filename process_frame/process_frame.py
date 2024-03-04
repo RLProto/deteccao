@@ -28,13 +28,12 @@ source_to_uri = {
     "G4_MEZ": os.getenv('G4_MEZ'),
     "UTILIDADES": os.getenv('UTILIDADES'),
 }
-
 # Function to handle WebSocket connection
 def send_detection_to_video_stream(detection_scores, source):
     uri = source_to_uri.get(source) 
 
     formatted_detections = [
-        {'class_id': det['class_id'], 'score': round(det['score'], 2), 'x': det['x'], 'y': det['y'], 'w': det['w'], 'h': det['h']}
+        {'class_id': det['class_id'], 'score': round(det['score'], 2), 'x1': det['x1'], 'y1': det['y1'], 'x2': det['x2'], 'y2': det['y2']}
         for det in detection_scores['detections']
     ]
 
@@ -68,19 +67,19 @@ async def process_frame(file: UploadFile, equipment: str = Form(...)):
 
             for result in results:
                 for r in result.boxes.data.tolist():
-                    x, y, w, h, score, class_id = r
+                    x1, y1, x2, y2, score, class_id = r
                     class_id = int(class_id)
                     score = float(score)
-                    if class_id == 0.0:
+                    if class_id == 0.0 and not (x1 > 1835 and y1 < 370):
                         detection_scores.append({
                             'class_id': class_id,
                             'score': round(score, 2),
-                            'x': x,
-                            'y': y,
-                            'w': w,
-                            'h': h
+                            'x1': x1,
+                            'y1': y1,
+                            'x2': x2,
+                            'y2': y2
                         })
-
+                        
             # Use threading to run WebSocket connection in the background
             threading.Thread(target=send_detection_to_video_stream, args=({'detections': detection_scores}, equipment), daemon=True).start()
 

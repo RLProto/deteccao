@@ -154,7 +154,7 @@ def process_frame_left(frame_left_local):
 
     # Draw detection rectangles
     for det in valuable_detections:
-        x1, y1, x2, y2 = det['x'], det['y'], det['w'], det['h']
+        x1, y1, x2, y2 = det['x1'], det['y1'], det['x2'], det['y2']
         cv2.rectangle(frame_left_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
 
     # Manage the blink effect based on the last detection time
@@ -188,7 +188,7 @@ def process_frame_right(frame_right_local):
         last_detection_time_right = current_time
 
     for det in valuable_detections:
-        x1, y1, x2, y2 = det['x'], det['y'], det['w'], det['h']
+        x1, y1, x2, y2 = det['x1'], det['y1'], det['x2'], det['y2']
         cv2.rectangle(frame_right_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
         
     # Manage the blink effect based on the last detection time
