@@ -18,7 +18,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-model = YOLO(r'/app/best.pt')
+model = YOLO(r'/app/data/best.pt')
 
 source_to_uri = {
     "G1": os.getenv('G1_URI'),

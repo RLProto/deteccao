@@ -8,7 +8,7 @@ import datetime
 import logging
 import os
 from fastapi import FastAPI, File, UploadFile, HTTPException
-
+from opcua import ua, Client
 import random
 
 app = FastAPI()  # Create an instance of the FastAPI class
@@ -44,6 +44,75 @@ backoff_factor = 2
 # URL of the API
 api_url = 'http://process_frame:8000/process_frame'
 api_url = 'http://192.168.137.1:8000/process_frame'
+
+server_url = 'opc.tcp://10.18.12.185:49324'
+tag_path = "ns=2;s=PROCESSO.PLC.GERMINACAO.CAM_DETECT_G4"
+#tag_path = "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_DETECT_TESTE"
+last_true_write_time = 0
+
+class OPCUAConnector:
+    _instance = None  # This will hold the singleton instance
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(OPCUAConnector, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, server_url, tag_path):
+        if hasattr(self, 'initialized'):
+            # Prevent reinitialization
+            return
+        self.server_url = server_url
+        self.tag_path = tag_path
+        self.client = Client(server_url)
+        self.connected = False
+        self.initialized = True  # Set an initialization flag
+    
+    def reconnect(self):
+        if self.connected:
+            self.disconnect()
+        self.connect()
+    
+    def connect(self):
+        try:
+            self.client.connect()
+            self.connected = True
+            logging.info("Connected to OPC UA server.")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to connect to OPC UA server: {e}")
+            self.connected = False
+            return False
+    
+    def disconnect(self):
+        try:
+            self.client.disconnect()
+            logging.info("Disconnected from OPC UA server.")
+        except Exception as e:
+            logging.error(f"Failed to disconnect properly: {e}")
+        finally:
+            self.connected = False
+    
+    def send_data(self, value):
+        if not self.connected:
+            logging.info("Not connected to OPC UA Server, attempting to reconnect...")
+            self.reconnect()
+            if not self.connected:
+                logging.error("Failed to reconnect to OPC UA Server. Aborting write operation.")
+                return
+        
+        try:
+            opc_tag = self.client.get_node(tag_path)
+            data_value = ua.DataValue(ua.Variant(value, ua.VariantType.Boolean))
+            opc_tag.set_attribute(ua.AttributeIds.Value, data_value)
+            
+            logging.info(f"Successfully wrote {value} to OPC UA.")
+        except Exception as e:
+            logging.error(f"Error writing to OPC UA: {e}")
+            self.connected = False  # Mark as disconnected to trigger a reconnect on next try
+
+# Usage
+connector = OPCUAConnector(server_url, tag_path)
 
 class VideoCapture:
     def __init__(self, url):
@@ -151,11 +220,12 @@ def exponential_backoff(attempt):
 
 # Define the process_frames function to process video frames
 def process_frames():
-    global cap
+    global cap,last_true_write_time
 
     while True:
         # Attempt to read a frame from the video source
         ret, frame = cap.read()
+        current_time = time.time()
         if not ret:
             # If reading the frame fails, log an error and wait for 5 seconds before the next attempt
             logging.critical("Failed to read a frame. Skipping this iteration.")
@@ -170,7 +240,7 @@ def process_frames():
         image_bytes = image_bytes.tobytes()
 
         # Send the frame to the API and handle the response
-        result = send_frame_to_api(image_bytes,equipment)
+        result = send_frame_to_api(image_bytes, equipment)
         if result:
             # Check if there are detection scores in the response
             detection_scores = result.get('detection_scores', [])
@@ -179,6 +249,14 @@ def process_frames():
                 logging.info(detection_scores)
                 # Send the detection scores to Node-RED
                 send_to_node_red(detection_scores)
+
+                current_time = time.time()
+                if any(d['score'] > 0.8 for d in detection_scores if 'score' in d) and current_time - last_true_write_time >= 10:
+                    connector.send_data(True)
+                    last_true_write_time = current_time
+                    # Schedule writing False after 10 seconds without blocking the main thread
+                    threading.Timer(10, lambda: connector.send_data(False)).start()
+
             else:
                 # If there are no detection scores in the response, log it
                 logging.info("No detection scores returned.")
@@ -186,12 +264,11 @@ def process_frames():
             # If the frame processing fails, log an error
             logging.error("Failed to process frame data.")
 
-        # Introduce a 1-second delay before reading the next frame
+        # Introduce a delay before reading the next frame
         time.sleep(2)
 
 # Start processing frames in a separate thread
 threading.Thread(target=process_frames).start()
-
 
 # Define an endpoint to save the current frame
 @app.post('/save_current_frame', response_model=dict)

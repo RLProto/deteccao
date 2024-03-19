@@ -337,7 +337,7 @@ if __name__ == "__main__":
     rtsp_url_left = "rtsp://admin:Ambev123@192.168.0.53:554/profile1"
 
     # RTSP URL for the right camera (subtype=0)
-    rtsp_url_right = "rtsp://admin:Ambev123@192.168.0.50:554/profile1"
+    rtsp_url_right = "rtsp://teste:Ambev123@192.168.0.50:554/profile1"
 
     # Start WebSocket servers for left and right streams
     threading.Thread(target=lambda: asyncio.run(start_websocket_server_left()), daemon=True).start()
