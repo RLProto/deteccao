@@ -25,8 +25,6 @@ source_to_uri = {
     "G2": os.getenv('G2_URI'),
     "G3": os.getenv('G3_URI'),
     "G4": os.getenv('G4_URI'),
-    "G4_MEZ": os.getenv('G4_MEZ'),
-    "UTILIDADES": os.getenv('UTILIDADES'),
 }
 # Function to handle WebSocket connection
 def send_detection_to_video_stream(detection_scores, source):

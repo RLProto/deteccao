@@ -8,15 +8,13 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    image: rlproto/deteccao:process_frame-v1.6  # Use the existing 'process_frame' image from Docker Hub
+    image: rlproto/deteccao:process_frame-v1.7  # Use the existing 'process_frame' image from Docker Hub
     container_name: process_frame
     environment:
       G1_URI: "ws://192.168.0.24:80"
       G2_URI: "ws://192.168.0.24:443"
       G3_URI: "ws://192.168.0.28:80"
       G4_URI: "ws://192.168.0.28:443"
-      UTILIDADES: "ws://192.168.0.23:80"
-      G4_MEZ: "ws://192.168.0.23:443"
 
     ports:
       - "8000:8000"
@@ -118,52 +116,6 @@ services:
     restart: unless-stopped 
     command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3004"
 
-  send_frame_g4_mez:
-    image: rlproto/deteccao:send_frame-v1.6  # Use the existing 'send_frame' image from Docker Hub
-    container_name: send_frame_g4_mez
-    environment:
-      NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointG4_MEZ'
-      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatG4_MEZ'
-      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.88:554/cam/realmonitor?channel=1&subtype=1"
-      EQUIPMENT: "G4_MEZ"
-      MAX_RETRIES: 4
-      BACKOFF_FACTOR: 4
-      SAVE_PATH: '/app/data/'
-      DELAY: 2
-    ports:
-      - "3005:3005"
-    depends_on:
-      - process_frame
-    networks:
-      - network
-    volumes:
-      - g4_mez:/app/data
-    restart: unless-stopped 
-    command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3005"
-
-  utilidades:
-    image: rlproto/deteccao:send_frame-v1.6  # Use the existing 'send_frame' image from Docker Hub
-    container_name: utilidades
-    environment:
-      NODE_RED_ENDPOINT: 'http://10.18.160.2:1885/endpointUtilidades'
-      HEARTBEAT_ENDPOINT: 'http://10.18.160.2:1885/heartbeatUtilidades'
-      CAMERA_ENDPOINT: "rtsp://teste:Ambev123@192.168.0.36:554"
-      EQUIPMENT: "UTILIDADES"
-      MAX_RETRIES: 4
-      BACKOFF_FACTOR: 4
-      SAVE_PATH: '/app/data/'
-      DELAY: 2
-    ports:
-      - "3006:3006"
-    depends_on:
-      - process_frame
-    networks:
-      - network
-    volumes:
-      - utilidades:/app/data
-    restart: unless-stopped 
-    command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3006"
-  
 networks:
   network:
     driver: bridge  # Specify the network driver, e.g., bridge
@@ -174,5 +126,3 @@ volumes:
   g2:  # Define the 'g2' volume
   g3:  # Define the 'g3' volume
   g4:  # Define the 'g4' volume
-  g4_mez: # Define the 'g4_mez' volume
-  utilidades: # Define the 'utilidades' volume
