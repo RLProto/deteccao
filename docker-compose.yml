@@ -21,7 +21,7 @@ services:
     networks:
       - network  # Specify the custom network
     volumes:
-      - process:/app/process  # Mount the volume
+      - process:/app/data  # Mount the volume
     restart: unless-stopped 
 
   send_frame_g1:

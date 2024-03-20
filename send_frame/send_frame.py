@@ -28,7 +28,7 @@ camera_ip = os.getenv('CAMERA_ENDPOINT')
 equipment = os.getenv('EQUIPMENT')
 
 # Define the equipment name to put in the saved frame
-delay_between_frames = os.getenv('DELAY')
+delay_between_frames = int(os.getenv('DELAY'))
 
 # Configure the logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
