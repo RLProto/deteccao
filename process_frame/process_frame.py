@@ -68,7 +68,7 @@ async def process_frame(file: UploadFile, equipment: str = Form(...)):
                     x1, y1, x2, y2, score, class_id = r
                     class_id = int(class_id)
                     score = float(score)
-                    if class_id == 0.0 and not (x1 > 1835 and y1 < 370):
+                    if class_id == 0.0 and (x1 < 1820 or y1 > 400):
                         detection_scores.append({
                             'class_id': class_id,
                             'score': round(score, 2),

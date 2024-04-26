@@ -16,7 +16,7 @@ last_data_received_time_left = None  # Initialize this variable
 frame_left = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_left = threading.Event()
 camera_disconnected_left = threading.Event()
-score_threshold = 0.7
+score_threshold = 0.83
 
 # For right stream
 detections_right = []
@@ -155,7 +155,7 @@ def process_frame_left(frame_left_local):
     # Draw detection rectangles
     for det in valuable_detections:
         x1, y1, x2, y2 = det['x1'], det['y1'], det['x2'], det['y2']
-        cv2.rectangle(frame_left_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
+        #cv2.rectangle(frame_left_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
 
     # Manage the blink effect based on the last detection time
     if last_detection_time_left and (current_time - last_detection_time_left) < blink_duration:
@@ -189,7 +189,7 @@ def process_frame_right(frame_right_local):
 
     for det in valuable_detections:
         x1, y1, x2, y2 = det['x1'], det['y1'], det['x2'], det['y2']
-        cv2.rectangle(frame_right_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
+        #cv2.rectangle(frame_right_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
         
     # Manage the blink effect based on the last detection time
     if last_detection_time_right and (current_time - last_detection_time_right) < blink_duration:
