@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 import asyncio
-import websockets
 import json
 import os
 import threading
@@ -19,36 +18,6 @@ app = FastAPI(
 )
 
 model = YOLO(r'/app/data/best.pt')
-
-source_to_uri = {
-    "G1": os.getenv('G1_URI'),
-    "G2": os.getenv('G2_URI'),
-    "G3": os.getenv('G3_URI'),
-    "G4": os.getenv('G4_URI'),
-}
-# Function to handle WebSocket connection
-def send_detection_to_video_stream(detection_scores, source):
-    uri = source_to_uri.get(source) 
-
-    formatted_detections = [
-        {'class_id': det['class_id'], 'score': round(det['score'], 2), 'x1': det['x1'], 'y1': det['y1'], 'x2': det['x2'], 'y2': det['y2']}
-        for det in detection_scores['detections']
-    ]
-
-    data_to_send = {'detections': formatted_detections}
-
-    try:
-        async def async_send():
-            async with websockets.connect(uri) as websocket:
-                await websocket.send(json.dumps(data_to_send))
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(async_send())
-    except asyncio.TimeoutError:
-        print(f"WebSocket connection to {uri} timed out.")
-    except Exception as e:
-        print(f"WebSocket error: {e}")
 
 @app.post("/process_frame", summary="Process and display an image")
 async def process_frame(file: UploadFile, equipment: str = Form(...)):
@@ -77,9 +46,6 @@ async def process_frame(file: UploadFile, equipment: str = Form(...)):
                             'x2': x2,
                             'y2': y2
                         })
-                        
-            # Use threading to run WebSocket connection in the background
-            threading.Thread(target=send_detection_to_video_stream, args=({'detections': detection_scores}, equipment), daemon=True).start()
 
             return {"detection_scores": detection_scores}
         else:

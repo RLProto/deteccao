@@ -1,11 +1,10 @@
 import cv2
-import asyncio
-import websockets
-import json
 import threading
-import time
 import numpy as np
 import logging
+from aiohttp import web
+import json
+import time
 
 # Global variables
 
@@ -16,7 +15,6 @@ last_data_received_time_left = None  # Initialize this variable
 frame_left = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_left = threading.Event()
 camera_disconnected_left = threading.Event()
-score_threshold = 0.83
 
 # For right stream
 detections_right = []
@@ -41,7 +39,6 @@ button_text = "Full Screen"
 mouse_is_over_button = False  # Tracks whether the mouse is over the button
 
 # Set the logging level for websockets.server to WARNING or higher
-logging.getLogger('websockets.server').setLevel(logging.WARNING)
 logging.basicConfig(level=logging.INFO)
 
 # At the global scope, initialize last_blink_toggle_time_left
@@ -63,53 +60,35 @@ last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
 
-async def detection_server_left(websocket, path):
+def start_api(port=8080):
+    app = web.Application()
+    app.add_routes([
+        web.post('/left', handle_left),
+        web.post('/right', handle_right)
+    ])
+    web.run_app(app, port=port)
+
+async def handle_left(request):
     global detections_left, last_detection_time_left, last_data_received_time_left
-
-    async for message in websocket:
-        data = json.loads(message)
+    try:
         last_data_received_time_left = time.time()
+        detections_left = True
+        last_detection_time_left = time.time()           
 
-        if 'detections' in data and data['detections']:
-            # Apply a score filter; only keep detections with a score above a certain threshold
-            filtered_detections = [detection for detection in data['detections'] if 'score' in detection and detection['score'] > score_threshold]
-            
-            if filtered_detections:  # Check if there are any detections left after filtering
-                detections_left = filtered_detections
-                last_detection_time_left = time.time()  # Update last detection time only for valuable detections
-            else:
-                detections_left = []
-        else:
-            detections_left = []
+        return web.Response(text="Detection processed", status=200)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
 
-async def detection_server_right(websocket, path):
+async def handle_right(request):
     global detections_right, last_detection_time_right, last_data_received_time_right
-
-    async for message in websocket:
-        data = json.loads(message)
+    try:
         last_data_received_time_right = time.time()
+        detections_right = True
+        last_detection_time_right = time.time()           
 
-        if 'detections' in data and data['detections']:
-            # Apply a score filter; only keep detections with a score above a certain threshold
-            filtered_detections = [detection for detection in data['detections'] if 'score' in detection and detection['score'] > score_threshold]
-            
-            if filtered_detections:  # Check if there are any detections right after filtering
-                detections_right = filtered_detections
-                last_detection_time_right = time.time()  # Update last detection time only for valuable detections
-            else:
-                detections_right = []
-        else:
-            detections_right = []
-
-async def start_websocket_server_left():
-    port_left = 80 # Example port for left camera WebSocket
-    async with websockets.serve(detection_server_left, "192.168.0.28", port_left):
-        await asyncio.Future()  # Run forever
-
-async def start_websocket_server_right():
-    port_right = 443  # Different port for right camera WebSocket
-    async with websockets.serve(detection_server_right, "192.168.0.28", port_right):
-        await asyncio.Future()  # Run forever
+        return web.Response(text="Detection processed", status=200)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
 
 def update_blink_state():
     global blink_timer_start, blink_state_left, blink_state_right
@@ -145,17 +124,9 @@ def process_frame_left(frame_left_local):
     # Update blink state based on the dedicated timer
     update_blink_state()
 
-    # Filter detections based on score
-    valuable_detections = [det for det in detections_left if det.get('score', 0) >= score_threshold]
-
-    if valuable_detections:
+    if detections_left:
         # Update last detection time for valuable detections
         last_detection_time_left = current_time
-
-    # Draw detection rectangles
-    for det in valuable_detections:
-        x1, y1, x2, y2 = det['x1'], det['y1'], det['x2'], det['y2']
-        #cv2.rectangle(frame_left_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
 
     # Manage the blink effect based on the last detection time
     if last_detection_time_left and (current_time - last_detection_time_left) < blink_duration:
@@ -176,21 +147,14 @@ def process_frame_right(frame_right_local):
     if camera_disconnected_right.is_set():
         # If the camera is disconnected, don't process or draw anything
         return
-        
-    # Ensure the blink state is updated based on the timer
+
+    # Update blink state based on the dedicated timer
     update_blink_state()
 
-    # Filter detections with score threshold
-    valuable_detections = [det for det in detections_right if det.get('score', 0) >= score_threshold]
-
-    if valuable_detections:
-        # Update the last detection time for valuable detections
+    if detections_right:
+        # Update last detection time for valuable detections
         last_detection_time_right = current_time
 
-    for det in valuable_detections:
-        x1, y1, x2, y2 = det['x1'], det['y1'], det['x2'], det['y2']
-        #cv2.rectangle(frame_right_local, (int(x1), int(y1)), (int(x2), int(y2)), (247, 75, 76), 6)
-        
     # Manage the blink effect based on the last detection time
     if last_detection_time_right and (current_time - last_detection_time_right) < blink_duration:
         border_color = (0, 0, 255) if blink_state_right else (230, 235, 255)
@@ -339,13 +303,15 @@ if __name__ == "__main__":
     # RTSP URL for the right camera (subtype=0)
     rtsp_url_right = "rtsp://admin:Ambev123@192.168.0.50:554/profile1"
 
-    # Start WebSocket servers for left and right streams
-    threading.Thread(target=lambda: asyncio.run(start_websocket_server_left()), daemon=True).start()
-    threading.Thread(target=lambda: asyncio.run(start_websocket_server_right()), daemon=True).start()
+    # Start the API server in a separate thread
+    api_thread = threading.Thread(target=start_api, args=(8080,), daemon=True)
+    api_thread.start()
 
     # Start video stream threads for the left and right cameras
-    threading.Thread(target=read_camera_left, args=(rtsp_url_left,), daemon=True).start()
-    threading.Thread(target=read_camera_right, args=(rtsp_url_right,), daemon=True).start()
+    left_camera_thread = threading.Thread(target=read_camera_left, args=(rtsp_url_left,), daemon=True)
+    right_camera_thread = threading.Thread(target=read_camera_right, args=(rtsp_url_right,), daemon=True)
+    left_camera_thread.start()
+    right_camera_thread.start()
 
-    # Start the video stream loop
+    # Start the video stream loop in the main thread
     video_stream_loop()
