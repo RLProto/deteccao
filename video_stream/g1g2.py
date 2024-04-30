@@ -60,7 +60,7 @@ last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
 
-def start_api(port=8080):
+def start_api(port=80):
     app = web.Application()
     app.add_routes([
         web.post('/left', handle_left),
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     rtsp_url_right = "rtsp://admin:Ambev123@192.168.0.52:554/profile1"
 
     # Start the API server in a separate thread
-    api_thread = threading.Thread(target=start_api, args=(8080,), daemon=True)
+    api_thread = threading.Thread(target=start_api, args=(80,), daemon=True)
     api_thread.start()
 
     # Start video stream threads for the left and right cameras

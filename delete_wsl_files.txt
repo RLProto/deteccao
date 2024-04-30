@@ -11,3 +11,8 @@ NO POWERSHELL
 wsl --shutdown
 optimize-vhd -Path "C:\Users\Proto\AppData\Local\Docker\wsl\data\ext4.vhdx" -Mode Full
 optimize-vhd -Path "C:\Users\Administrator\AppData\Local\Docker\wsl\data\ext4.vhdx" -Mode Full
+
+Move-Item -Path "C:\Users\Proto\AppData\Local\Docker\wsl\data\ext4.vhdx" -Destination "D:\WSL\ext4.vhdx"
+Move-Item -Path "C:\Users\Proto\AppData\Local\Packages\CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc\LocalState\ext4.vhdx" -Destination "D:\WSL\ubuntu\ext4.vhdx"
+
+Move-Item -Path "C:\Users\<YourUserName>\AppData\Local\Packages\<UbuntuFolder>\LocalState\ext4.vhdx" -Destination "D:\WSL\Ubuntu.vhdx"
