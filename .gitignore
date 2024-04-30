@@ -4,3 +4,4 @@ video_stream/dist
 video_stream/venv
 process_frame/venv/
 send_frame/venv/
+gateway/venv/

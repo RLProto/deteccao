@@ -110,6 +110,15 @@ services:
     restart: unless-stopped 
     command: sh -c "sleep 10 && uvicorn send_frame:app --host 0.0.0.0 --port 3004"
 
+  gateway:
+    image: rlproto/deteccao:gateway-v1.0  # Assuming you have built and tagged the gateway image accordingly
+    container_name: gateway
+    ports:
+      - "5000:5000"
+    networks:
+      - network
+    restart: unless-stopped 
+
 networks:
   network:
     driver: bridge  # Specify the network driver, e.g., bridge
