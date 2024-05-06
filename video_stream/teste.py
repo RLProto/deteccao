@@ -16,6 +16,9 @@ last_data_received_time_left = None  # Initialize this variable
 frame_left = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_left = threading.Event()
 camera_disconnected_left = threading.Event()
+enable_left= False
+relay_left = False
+detection_ret_left = False
 
 # For right stream
 detections_right = []
@@ -24,11 +27,6 @@ last_data_received_time_right = None  # Initialize this variable
 frame_right = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_right = threading.Event()
 camera_disconnected_right = threading.Event()
-
-enable_left= False
-relay_left = False
-detection_ret_left = False
-
 enable_right = False
 relay_right = False
 detection_ret_right = False
@@ -67,116 +65,64 @@ frame_lock_right = threading.Lock()
 last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
+async def handle_person_detected(request):
+    global detections_left, last_detection_time_left, last_data_received_time_left
+    global detections_right, last_detection_time_right, last_data_received_time_right
 
-# Define the OPC UA Client and SubscriptionHandler
-class OPCUAClient:
-    def __init__(self, server_url):
-        self.client = Client(server_url)
-        self.subscription = None
+    side = request.match_info['side']
+    try:
+        current_time = time.time()
+        if side == 'left':
+            detections_left = True
+            last_detection_time_left = current_time
+        elif side == 'right':
+            detections_right = True
+            last_detection_time_right = current_time
 
-    def connect(self):
-        try:
-            self.client.connect()
-            print("Connected to the server.")
-        except Exception as e:
-            print(f"Error while trying to connect to server: {e}")
+        return web.Response(text=f"{side.capitalize()} person_detected processed", status=200)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
 
-    def subscribe_to_tag(self, tag_path, interval_ms=1000):
-        try:
-            node = self.client.get_node(tag_path)
-            handler = CustomSubscriptionHandler()
-            self.subscription = self.client.create_subscription(interval_ms, handler)
-            handle = self.subscription.subscribe_data_change(node)
-            print(f"Subscribed to changes in {tag_path}.")
-            return handle
-        except Exception as e:
-            print(f"Error during subscription: {e}")
-            return None
-
-    def unsubscribe(self, handle):
-        if self.subscription and handle:
-            self.subscription.unsubscribe(handle)
-            self.subscription.delete()
-            print("Unsubscribed and cleaned up subscription.")
-
-    def disconnect(self):
-        self.client.disconnect()
-        print("Disconnected from the server.")
-
-class CustomSubscriptionHandler:
-    def datachange_notification(self, node, val, data):
-        global relay_right, enable_right, detection_ret_right, relay_left, enable_left, detection_ret_left
-        print(f"Data change in {node}, new value: {val}")
-        
-        if str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_RELAY":
-            relay_right = (val)
-        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_ENABLE":
-            enable_right = (val)
-        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_DETECTION_RET":
-            detection_ret_right = (val)
-        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_RELAY":
-            relay_left = (val)
-        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_ENABLE":
-            enable_left = (val)
-        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_DETECTION_RET":
-            detection_ret_left = (val)
-        
-def opc_ua_client_thread():
-    global relay_right, enable_right, detection_ret_right, relay_left, enable_left, detection_ret_left
-    opc_client = OPCUAClient('opc.tcp://10.18.12.185:49324')
-    opc_client.connect()
-    
-    # Handlers for subscriptions
-    handle_relay_right = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_RELAY")
-    handle_enable_right = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_ENABLE")
-    handle_detection_ret_right = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_DETECTION_RET")
-    handle_relay_left = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_RELAY")
-    handle_enable_left = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_ENABLE")
-    handle_detection_ret_left = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_DETECTION_RET")
+async def handle_generic(request):
+    side = request.match_info['side']
+    operation = request.match_info['operation']
+    global enable_left, relay_left, detection_ret_left
+    global enable_right, relay_right, detection_ret_right
 
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        opc_client.unsubscribe(handle_relay_right)
-        opc_client.unsubscribe(handle_enable_right)
-        opc_client.unsubscribe(handle_detection_ret_right)
-        opc_client.unsubscribe(handle_relay_left)
-        opc_client.unsubscribe(handle_enable_left)
-        opc_client.unsubscribe(handle_detection_ret_left)
-        opc_client.disconnect()
+        # Assuming the request sends a JSON body with a boolean value
+        data = await request.json()
+        value = data.get('value', False)  # Default to False if not provided
+
+        if operation == 'enable':
+            if side == 'left':
+                enable_left = value
+            else:
+                enable_right = value
+        elif operation == 'relay':
+            if side == 'left':
+                relay_left = value
+            else:
+                relay_right = value
+        elif operation == 'detection_ret':
+            if side == 'left':
+                detection_ret_left = value
+            else:
+                detection_ret_right = value
+        
+        return web.Response(text=f"{side.capitalize()} {operation} set to {value}", status=200)
+    except json.JSONDecodeError:
+        return web.Response(text="Invalid JSON data", status=400)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
 
 def start_api(port=8080):
     app = web.Application()
     app.add_routes([
-        web.post('/left', handle_left),
-        web.post('/right', handle_right)
+        web.post('/{side}/person_detected', handle_person_detected),
+        web.post('/{side}/{operation}', handle_generic)
     ])
     web.run_app(app, port=port)
-
-async def handle_left(request):
-    global detections_left, last_detection_time_left, last_data_received_time_left
-    try:
-        last_data_received_time_left = time.time()
-        detections_left = True
-        last_detection_time_left = time.time()           
-
-        return web.Response(text="Detection processed", status=200)
-    except Exception as e:
-        return web.Response(text=str(e), status=500)
-
-async def handle_right(request):
-    global detections_right, last_detection_time_right, last_data_received_time_right
-    try:
-        last_data_received_time_right = time.time()
-        detections_right = True
-        last_detection_time_right = time.time()           
-
-        return web.Response(text="Detection processed", status=200)
-    except Exception as e:
-        return web.Response(text=str(e), status=500)
 
 def update_blink_state():
     global blink_timer_start, blink_state_left, blink_state_right
@@ -444,10 +390,7 @@ if __name__ == "__main__":
     # Start the API server in a separate thread
     api_thread = threading.Thread(target=start_api, args=(8080,), daemon=True)
     api_thread.start()
-
-    opc_thread = threading.Thread(target=opc_ua_client_thread, daemon=True)
-    opc_thread.start()
-
+    
     # Start video stream threads for the left and right cameras
     left_camera_thread = threading.Thread(target=read_camera_left, args=(rtsp_url_left,), daemon=True)
     right_camera_thread = threading.Thread(target=read_camera_right, args=(rtsp_url_right,), daemon=True)
