@@ -5,6 +5,7 @@ import logging
 from aiohttp import web
 import json
 import time
+from opcua import Client
 
 # Global variables
 
@@ -24,6 +25,14 @@ frame_right = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_right = threading.Event()
 camera_disconnected_right = threading.Event()
 
+enable_left= False
+relay_left = False
+detection_ret_left = False
+
+enable_right = False
+relay_right = False
+detection_ret_right = False
+
 # Common variables for both streams
 blink_duration = 30  # seconds, set your desired blink duration
 detection_timeout = 5  # seconds, set your desired detection timeout
@@ -38,8 +47,6 @@ button_hover_color = (150, 150, 250)  # A lighter blue for hover effect
 button_text = "Full Screen"
 mouse_is_over_button = False  # Tracks whether the mouse is over the button
 
-# Set the logging level for websockets.server to WARNING or higher
-logging.getLogger('websockets.server').setLevel(logging.WARNING)
 logging.basicConfig(level=logging.INFO)
 
 # At the global scope, initialize last_blink_toggle_time_left
@@ -60,6 +67,86 @@ frame_lock_right = threading.Lock()
 last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
+
+# Define the OPC UA Client and SubscriptionHandler
+class OPCUAClient:
+    def __init__(self, server_url):
+        self.client = Client(server_url)
+        self.subscription = None
+
+    def connect(self):
+        try:
+            self.client.connect()
+            print("Connected to the server.")
+        except Exception as e:
+            print(f"Error while trying to connect to server: {e}")
+
+    def subscribe_to_tag(self, tag_path, interval_ms=1000):
+        try:
+            node = self.client.get_node(tag_path)
+            handler = CustomSubscriptionHandler()
+            self.subscription = self.client.create_subscription(interval_ms, handler)
+            handle = self.subscription.subscribe_data_change(node)
+            print(f"Subscribed to changes in {tag_path}.")
+            return handle
+        except Exception as e:
+            print(f"Error during subscription: {e}")
+            return None
+
+    def unsubscribe(self, handle):
+        if self.subscription and handle:
+            self.subscription.unsubscribe(handle)
+            self.subscription.delete()
+            print("Unsubscribed and cleaned up subscription.")
+
+    def disconnect(self):
+        self.client.disconnect()
+        print("Disconnected from the server.")
+
+class CustomSubscriptionHandler:
+    def datachange_notification(self, node, val, data):
+        global relay_right, enable_right, detection_ret_right, relay_left, enable_left, detection_ret_left
+        print(f"Data change in {node}, new value: {val}")
+        
+        if str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_RELAY":
+            relay_right = (val)
+        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_ENABLE":
+            enable_right = (val)
+        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_DETECTION_RET":
+            detection_ret_right = (val)
+        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_RELAY":
+            relay_left = (val)
+        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_ENABLE":
+            enable_left = (val)
+        elif str(node) == "ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_DETECTION_RET":
+            detection_ret_left = (val)
+        
+def opc_ua_client_thread():
+    global relay_right, enable_right, detection_ret_right, relay_left, enable_left, detection_ret_left
+    opc_client = OPCUAClient('opc.tcp://10.18.12.185:49324')
+    opc_client.connect()
+    
+    # Handlers for subscriptions
+    handle_relay_right = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_RELAY")
+    handle_enable_right = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_ENABLE")
+    handle_detection_ret_right = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G4_DETECTION_RET")
+    handle_relay_left = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_RELAY")
+    handle_enable_left = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_ENABLE")
+    handle_detection_ret_left = opc_client.subscribe_to_tag("ns=2;s=COLETA_DADOS.Device1.GERMINACAO.CAM_G3_DETECTION_RET")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        opc_client.unsubscribe(handle_relay_right)
+        opc_client.unsubscribe(handle_enable_right)
+        opc_client.unsubscribe(handle_detection_ret_right)
+        opc_client.unsubscribe(handle_relay_left)
+        opc_client.unsubscribe(handle_enable_left)
+        opc_client.unsubscribe(handle_detection_ret_left)
+        opc_client.disconnect()
 
 def start_api(port=8080):
     app = web.Application()
@@ -202,6 +289,52 @@ def read_camera_right(rtsp_stream_url_right):
         # Introduce a short pause to avoid overwhelming the system in a tight loop
         time.sleep(1)
 
+def display_interlock_status_left(frame):
+    global relay_left, detection_ret_left, enable_left
+    if enable_left == False:
+        return  # Do nothing if enable is 0
+
+    if relay_left and detection_ret_left:
+        color = (0, 0, 255)  # Red
+        background_color = (245, 245, 225)  # Lighter background for red text
+        text = "Intertravamento Ativado"
+    elif relay_left and not detection_ret_left:
+        color = (0, 255, 255)  # Yellow
+        background_color = (127, 127, 127)  # Grey background for yellow text
+        text = "Intertravamento Ativado"
+    else:
+        return  # Do not display any text
+
+    if int(time.time() % 2) == 0:  # Blink every second
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
+        text_x = 390
+        text_y = 900
+        cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
+        cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+
+def display_interlock_status_right(frame):
+    global relay_right, detection_ret_right,_right
+    if enable_right == False:
+        return  # Do nothing if enable is 0
+
+    if relay_right and detection_ret_right:
+        color = (0, 0, 255)  # Red
+        background_color = (245, 245, 225)  # Lighter background for red text
+        text = "Intertravamento Ativado"
+    elif relay_right and not detection_ret_right:
+        color = (0, 255, 255)  # Yellow
+        background_color = (127, 127, 127)  # Grey background for yellow text
+        text = "Intertravamento Ativado"
+    else:
+        return  # Do not display any text
+
+    if int(time.time() % 2) == 0:  # Blink every second
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
+        text_x = 2320
+        text_y = 900
+        cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
+        cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+
 def video_stream_loop():
     global frame_left, frame_right, frame_available_left, frame_available_right, last_frame_time_left, last_frame_time_right
     global detections_left, detections_right  # Ensure these are accessible
@@ -273,6 +406,10 @@ def video_stream_loop():
         # Combine and display the processed frames
         combined_frame = np.hstack((resized_frame_left, resized_frame_right))
 
+        # Check interlock status and display accordingly
+        display_interlock_status_left(combined_frame)
+        display_interlock_status_right(combined_frame)
+
         # UI for full-screen toggle
         if not full_screen:
             cv2.rectangle(combined_frame, (button_position_x, button_position_y), 
@@ -297,7 +434,6 @@ def video_stream_loop():
 
     cv2.destroyAllWindows()
 
-
 if __name__ == "__main__":
     # RTSP URL for the left camera (subtype=0)
     rtsp_url_left = "rtsp://teste:Ambev123@192.168.137.109:554/cam/realmonitor?channel=1&subtype=0"
@@ -308,6 +444,9 @@ if __name__ == "__main__":
     # Start the API server in a separate thread
     api_thread = threading.Thread(target=start_api, args=(8080,), daemon=True)
     api_thread.start()
+
+    opc_thread = threading.Thread(target=opc_ua_client_thread, daemon=True)
+    opc_thread.start()
 
     # Start video stream threads for the left and right cameras
     left_camera_thread = threading.Thread(target=read_camera_left, args=(rtsp_url_left,), daemon=True)
