@@ -5,6 +5,7 @@ import logging
 from aiohttp import web
 import json
 import time
+from opcua import Client
 
 # Global variables
 
@@ -15,6 +16,9 @@ last_data_received_time_left = None  # Initialize this variable
 frame_left = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_left = threading.Event()
 camera_disconnected_left = threading.Event()
+enable_left= False
+relay_left = False
+detection_ret_left = False
 
 # For right stream
 detections_right = []
@@ -23,6 +27,9 @@ last_data_received_time_right = None  # Initialize this variable
 frame_right = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_right = threading.Event()
 camera_disconnected_right = threading.Event()
+enable_right = False
+relay_right = False
+detection_ret_right = False
 
 # Common variables for both streams
 blink_duration = 30  # seconds, set your desired blink duration
@@ -38,7 +45,6 @@ button_hover_color = (150, 150, 250)  # A lighter blue for hover effect
 button_text = "Full Screen"
 mouse_is_over_button = False  # Tracks whether the mouse is over the button
 
-# Set the logging level for websockets.server to WARNING or higher
 logging.basicConfig(level=logging.INFO)
 
 # At the global scope, initialize last_blink_toggle_time_left
@@ -59,36 +65,64 @@ frame_lock_right = threading.Lock()
 last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
+async def handle_person_detected(request):
+    global detections_left, last_detection_time_left, last_data_received_time_left
+    global detections_right, last_detection_time_right, last_data_received_time_right
+
+    side = request.match_info['side']
+    try:
+        current_time = time.time()
+        if side == 'left':
+            detections_left = True
+            last_detection_time_left = current_time
+        elif side == 'right':
+            detections_right = True
+            last_detection_time_right = current_time
+
+        return web.Response(text=f"{side.capitalize()} person_detected processed", status=200)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
+
+async def handle_generic(request):
+    side = request.match_info['side']
+    operation = request.match_info['operation']
+    global enable_left, relay_left, detection_ret_left
+    global enable_right, relay_right, detection_ret_right
+
+    try:
+        # Assuming the request sends a JSON body with a boolean value
+        data = await request.json()
+        value = data.get('value', False)  # Default to False if not provided
+
+        if operation == 'enable':
+            if side == 'left':
+                enable_left = value
+            else:
+                enable_right = value
+        elif operation == 'relay':
+            if side == 'left':
+                relay_left = value
+            else:
+                relay_right = value
+        elif operation == 'detection_ret':
+            if side == 'left':
+                detection_ret_left = value
+            else:
+                detection_ret_right = value
+        
+        return web.Response(text=f"{side.capitalize()} {operation} set to {value}", status=200)
+    except json.JSONDecodeError:
+        return web.Response(text="Invalid JSON data", status=400)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
 
 def start_api(port=80):
     app = web.Application()
     app.add_routes([
-        web.post('/left', handle_left),
-        web.post('/right', handle_right)
+        web.post('/{side}/person_detected', handle_person_detected),
+        web.post('/{side}/{operation}', handle_generic)
     ])
     web.run_app(app, port=port)
-
-async def handle_left(request):
-    global detections_left, last_detection_time_left, last_data_received_time_left
-    try:
-        last_data_received_time_left = time.time()
-        detections_left = True
-        last_detection_time_left = time.time()           
-
-        return web.Response(text="Detection processed", status=200)
-    except Exception as e:
-        return web.Response(text=str(e), status=500)
-
-async def handle_right(request):
-    global detections_right, last_detection_time_right, last_data_received_time_right
-    try:
-        last_data_received_time_right = time.time()
-        detections_right = True
-        last_detection_time_right = time.time()           
-
-        return web.Response(text="Detection processed", status=200)
-    except Exception as e:
-        return web.Response(text=str(e), status=500)
 
 def update_blink_state():
     global blink_timer_start, blink_state_left, blink_state_right
@@ -201,6 +235,52 @@ def read_camera_right(rtsp_stream_url_right):
         # Introduce a short pause to avoid overwhelming the system in a tight loop
         time.sleep(1)
 
+def display_interlock_status_left(frame):
+    global relay_left, detection_ret_left, enable_left
+    if enable_left == False:
+        return  # Do nothing if enable is 0
+
+    if relay_left and detection_ret_left:
+        color = (0, 0, 255)  # Red
+        background_color = (245, 245, 225)  # Lighter background for red text
+        text = "Intertravamento Ativado"
+    elif relay_left and not detection_ret_left:
+        color = (0, 255, 255)  # Yellow
+        background_color = (127, 127, 127)  # Grey background for yellow text
+        text = "Intertravamento Ativado"
+    else:
+        return  # Do not display any text
+
+    if int(time.time() % 2) == 0:  # Blink every second
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
+        text_x = 390
+        text_y = 900
+        cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
+        cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+
+def display_interlock_status_right(frame):
+    global relay_right, detection_ret_right,_right
+    if enable_right == False:
+        return  # Do nothing if enable is 0
+
+    if relay_right and detection_ret_right:
+        color = (0, 0, 255)  # Red
+        background_color = (245, 245, 225)  # Lighter background for red text
+        text = "Intertravamento Ativado"
+    elif relay_right and not detection_ret_right:
+        color = (0, 255, 255)  # Yellow
+        background_color = (127, 127, 127)  # Grey background for yellow text
+        text = "Intertravamento Ativado"
+    else:
+        return  # Do not display any text
+
+    if int(time.time() % 2) == 0:  # Blink every second
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
+        text_x = 2320
+        text_y = 900
+        cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
+        cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+
 def video_stream_loop():
     global frame_left, frame_right, frame_available_left, frame_available_right, last_frame_time_left, last_frame_time_right
     global detections_left, detections_right  # Ensure these are accessible
@@ -272,6 +352,10 @@ def video_stream_loop():
         # Combine and display the processed frames
         combined_frame = np.hstack((resized_frame_left, resized_frame_right))
 
+        # Check interlock status and display accordingly
+        #display_interlock_status_left(combined_frame)
+        #display_interlock_status_right(combined_frame)
+
         # UI for full-screen toggle
         if not full_screen:
             cv2.rectangle(combined_frame, (button_position_x, button_position_y), 
@@ -306,7 +390,7 @@ if __name__ == "__main__":
     # Start the API server in a separate thread
     api_thread = threading.Thread(target=start_api, args=(80,), daemon=True)
     api_thread.start()
-
+    
     # Start video stream threads for the left and right cameras
     left_camera_thread = threading.Thread(target=read_camera_left, args=(rtsp_url_left,), daemon=True)
     right_camera_thread = threading.Thread(target=read_camera_right, args=(rtsp_url_right,), daemon=True)
