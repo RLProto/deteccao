@@ -73,9 +73,11 @@ async def handle_person_detected(request):
     try:
         current_time = time.time()
         if side == 'left':
+            last_data_received_time_left = current_time
             detections_left = True
             last_detection_time_left = current_time
         elif side == 'right':
+            last_data_received_time_right = current_time
             detections_right = True
             last_detection_time_right = current_time
 
