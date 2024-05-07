@@ -7,26 +7,35 @@ async def forward_request(request):
     path = request.match_info['target']
     
     # Comprehensive forwarding rules covering various operations for each gateway
+
     forwarding_rules = {
-        'g1_person_detected': 'http://192.168.0.24:80/left/person_detected',
+        'g1_detection': 'http://192.168.0.24:80/left/detection',
+        'g1_emergency_button': 'http://192.168.0.24:80/left/emergency_button',
+        'g1_light_curtain': 'http://192.168.0.24:80/left/light_curtain',
+        'g1_emergency_cord': 'http://192.168.0.24:80/left/emergency_cord',
         'g1_enable': 'http://192.168.0.24:80/left/enable',
-        'g1_detection_ret': 'http://192.168.0.24:80/left/detection_ret',
-        'g1_relay': 'http://192.168.0.24:80/left/relay',
+        'g1_person_detected': 'http://192.168.0.24:80/left/person_detected',
 
-        'g2_person_detected': 'http://192.168.0.24:80/right/person_detected',
+        'g2_detection': 'http://192.168.0.24:80/right/detection',
+        'g2_emergency_button': 'http://192.168.0.24:80/right/emergency_button',
+        'g2_light_curtain': 'http://192.168.0.24:80/right/light_curtain',
+        'g2_emergency_cord': 'http://192.168.0.24:80/right/emergency_cord',
         'g2_enable': 'http://192.168.0.24:80/right/enable',
-        'g2_detection_ret': 'http://192.168.0.24:80/right/detection_ret',
-        'g2_relay': 'http://192.168.0.24:80/right/relay',
+        'g2_person_detected': 'http://192.168.0.24:80/right/person_detected',
 
-        'g3_person_detected': 'http://192.168.0.28:80/left/person_detected',
+        'g3_detection': 'http://192.168.0.28:80/left/detection',
+        'g3_emergency_button': 'http://192.168.0.28:80/left/emergency_button',
+        'g3_light_curtain': 'http://192.168.0.28:80/left/light_curtain',
+        'g3_emergency_cord': 'http://192.168.0.28:80/left/emergency_cord',
         'g3_enable': 'http://192.168.0.28:80/left/enable',
-        'g3_detection_ret': 'http://192.168.0.28:80/left/detection_ret',
-        'g3_relay': 'http://192.168.0.28:80/left/relay',
+        'g3_person_detected': 'http://192.168.0.28:80/left/person_detected',
 
-        'g4_person_detected': 'http://192.168.0.28:80/right/person_detected',
+        'g4_detection': 'http://192.168.0.28:80/right/detection',
+        'g4_emergency_button': 'http://192.168.0.28:80/right/emergency_button',
+        'g4_light_curtain': 'http://192.168.0.28:80/right/light_curtain',
+        'g4_emergency_cord': 'http://192.168.0.28:80/right/emergency_cord',
         'g4_enable': 'http://192.168.0.28:80/right/enable',
-        'g4_detection_ret': 'http://192.168.0.28:80/right/detection_ret',
-        'g4_relay': 'http://192.168.0.28:80/right/relay',
+        'g4_person_detected': 'http://192.168.0.28:80/right/person_detected',
     }
 
     target_url = forwarding_rules.get(path)
