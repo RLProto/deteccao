@@ -73,9 +73,11 @@ async def handle_person_detected(request):
     try:
         current_time = time.time()
         if side == 'left':
+            last_data_received_time_left = current_time
             detections_left = True
             last_detection_time_left = current_time
         elif side == 'right':
+            last_data_received_time_right = current_time
             detections_right = True
             last_detection_time_right = current_time
 
@@ -116,7 +118,7 @@ async def handle_generic(request):
     except Exception as e:
         return web.Response(text=str(e), status=500)
 
-def start_api(port=8080):
+def start_api(port=80):
     app = web.Application()
     app.add_routes([
         web.post('/{side}/person_detected', handle_person_detected),
@@ -388,7 +390,7 @@ if __name__ == "__main__":
     rtsp_url_right = "rtsp://admin:Ambev123@192.168.0.50:554/profile1"
 
     # Start the API server in a separate thread
-    api_thread = threading.Thread(target=start_api, args=(8080,), daemon=True)
+    api_thread = threading.Thread(target=start_api, args=(80,), daemon=True)
     api_thread.start()
     
     # Start video stream threads for the left and right cameras
