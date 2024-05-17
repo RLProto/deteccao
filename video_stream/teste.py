@@ -16,9 +16,6 @@ last_data_received_time_left = None  # Initialize this variable
 frame_left = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_left = threading.Event()
 camera_disconnected_left = threading.Event()
-enable_left= False
-relay_left = False
-detection_ret_left = False
 
 # For right stream
 detections_right = []
@@ -27,9 +24,6 @@ last_data_received_time_right = None  # Initialize this variable
 frame_right = np.zeros((480, 640, 3), dtype=np.uint8)
 frame_available_right = threading.Event()
 camera_disconnected_right = threading.Event()
-enable_right = False
-relay_right = False
-detection_ret_right = False
 
 # Common variables for both streams
 blink_duration = 30  # seconds, set your desired blink duration
@@ -65,6 +59,22 @@ frame_lock_right = threading.Lock()
 last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
+interlock_signals_left = {
+    'enable': False,
+    'detection': False,
+    'emergency_button': False,
+    'light_curtain': False,
+    'emergency_cord': False
+}
+
+interlock_signals_right = {
+    'enable': False,
+    'detection': False,
+    'emergency_button': False,
+    'light_curtain': False,
+    'emergency_cord': False
+}
+
 async def handle_person_detected(request):
     global detections_left, last_detection_time_left, last_data_received_time_left
     global detections_right, last_detection_time_right, last_data_received_time_right
@@ -86,37 +96,23 @@ async def handle_person_detected(request):
 async def handle_generic(request):
     side = request.match_info['side']
     operation = request.match_info['operation']
-    global enable_left, relay_left, detection_ret_left
-    global enable_right, relay_right, detection_ret_right
 
     try:
-        # Assuming the request sends a JSON body with a boolean value
         data = await request.json()
         value = data.get('value', False)  # Default to False if not provided
 
-        if operation == 'enable':
-            if side == 'left':
-                enable_left = value
-            else:
-                enable_right = value
-        elif operation == 'relay':
-            if side == 'left':
-                relay_left = value
-            else:
-                relay_right = value
-        elif operation == 'detection_ret':
-            if side == 'left':
-                detection_ret_left = value
-            else:
-                detection_ret_right = value
-        
+        if side == 'left':
+            interlock_signals_left[operation] = value
+        elif side == 'right':
+            interlock_signals_right[operation] = value
+
         return web.Response(text=f"{side.capitalize()} {operation} set to {value}", status=200)
     except json.JSONDecodeError:
         return web.Response(text="Invalid JSON data", status=400)
     except Exception as e:
         return web.Response(text=str(e), status=500)
 
-def start_api(port=8080):
+def start_api(port=80):
     app = web.Application()
     app.add_routes([
         web.post('/{side}/person_detected', handle_person_detected),
@@ -235,51 +231,38 @@ def read_camera_right(rtsp_stream_url_right):
         # Introduce a short pause to avoid overwhelming the system in a tight loop
         time.sleep(1)
 
-def display_interlock_status_left(frame):
-    global relay_left, detection_ret_left, enable_left
-    if enable_left == False:
-        return  # Do nothing if enable is 0
-
-    if relay_left and detection_ret_left:
-        color = (0, 0, 255)  # Red
-        background_color = (245, 245, 225)  # Lighter background for red text
-        text = "Intertravamento Ativado"
-    elif relay_left and not detection_ret_left:
-        color = (0, 255, 255)  # Yellow
-        background_color = (127, 127, 127)  # Grey background for yellow text
-        text = "Intertravamento Ativado"
+def display_interlock_status(frame, side):
+    if side == 'left':
+        interlock_signals = interlock_signals_left
     else:
-        return  # Do not display any text
+        interlock_signals = interlock_signals_right
 
-    if int(time.time() % 2) == 0:  # Blink every second
-        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
-        text_x = 390
-        text_y = 900
-        cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
-        cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+    if not interlock_signals['enable']:
+        return  # Do nothing if interlock is not enabled for the side
 
-def display_interlock_status_right(frame):
-    global relay_right, detection_ret_right,_right
-    if enable_right == False:
-        return  # Do nothing if enable is 0
+    active_signals = [signal for signal, active in interlock_signals.items() if active and signal != 'enable']
 
-    if relay_right and detection_ret_right:
-        color = (0, 0, 255)  # Red
-        background_color = (245, 245, 225)  # Lighter background for red text
-        text = "Intertravamento Ativado"
-    elif relay_right and not detection_ret_right:
-        color = (0, 255, 255)  # Yellow
-        background_color = (127, 127, 127)  # Grey background for yellow text
-        text = "Intertravamento Ativado"
-    else:
-        return  # Do not display any text
+    if not active_signals:
+        return
 
-    if int(time.time() % 2) == 0:  # Blink every second
-        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
-        text_x = 2320
-        text_y = 900
-        cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
-        cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+    # Main sign
+    text = "Intertravamento Ativado"
+    color = (0, 0, 255)  # Red
+    background_color = (245, 245, 225)  # Light gray background
+    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
+    text_x = 390 if side == 'left' else 2320
+    text_y = 900
+
+    cv2.rectangle(frame, (text_x, text_y - text_size[1]), (text_x + text_size[0], text_y + 20), background_color, -1)
+    cv2.putText(frame, text, (text_x, text_y + 8), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+
+    # Display active signals
+    for i, signal in enumerate(active_signals):
+        if signal == 'enable':  # Skip the enable signal for display
+            continue
+        signal_text = signal.replace('_', ' ').capitalize()
+        signal_y = text_y + (i + 1) * 50
+        cv2.putText(frame, signal_text, (text_x, signal_y), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
 def video_stream_loop():
     global frame_left, frame_right, frame_available_left, frame_available_right, last_frame_time_left, last_frame_time_right
@@ -322,7 +305,6 @@ def video_stream_loop():
                 detections_left = []  # Clear detections for left camera
                 camera_disconnected_left.set()
 
-
         with frame_lock_right:
             if frame_available_right.is_set() or (current_time - last_frame_time_right <= camera_timeout):
                 frame_right_local = frame_right.copy()
@@ -337,7 +319,7 @@ def video_stream_loop():
         # Process these local copies
         process_frame_left(frame_left_local)
         process_frame_right(frame_right_local)
-    
+
         target_height = max(frame_left.shape[0], frame_right.shape[0])
 
         # Resize frames to have the same height (maintain aspect ratio)
@@ -352,9 +334,9 @@ def video_stream_loop():
         # Combine and display the processed frames
         combined_frame = np.hstack((resized_frame_left, resized_frame_right))
 
-        # Check interlock status and display accordingly
-        display_interlock_status_left(combined_frame)
-        display_interlock_status_right(combined_frame)
+        # Display interlock status for left and right cameras
+        display_interlock_status(combined_frame, 'left')
+        display_interlock_status(combined_frame, 'right')
 
         # UI for full-screen toggle
         if not full_screen:
@@ -388,7 +370,7 @@ if __name__ == "__main__":
     rtsp_url_right = "rtsp://teste:Ambev123@192.168.137.109:554/cam/realmonitor?channel=1&subtype=0"
 
     # Start the API server in a separate thread
-    api_thread = threading.Thread(target=start_api, args=(8080,), daemon=True)
+    api_thread = threading.Thread(target=start_api, args=(80,), daemon=True)
     api_thread.start()
     
     # Start video stream threads for the left and right cameras

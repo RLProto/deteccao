@@ -5,6 +5,7 @@ import logging
 from aiohttp import web
 import json
 import time
+from opcua import Client
 
 # Global variables
 
@@ -38,7 +39,6 @@ button_hover_color = (150, 150, 250)  # A lighter blue for hover effect
 button_text = "Full Screen"
 mouse_is_over_button = False  # Tracks whether the mouse is over the button
 
-# Set the logging level for websockets.server to WARNING or higher
 logging.basicConfig(level=logging.INFO)
 
 # At the global scope, initialize last_blink_toggle_time_left
@@ -59,36 +59,68 @@ frame_lock_right = threading.Lock()
 last_frame_time_left = time.time()  # Initialize with the current time
 last_frame_time_right = time.time()  # Initialize with the current time
 
+interlock_signals_left = {
+    'enable': False,
+    'detection': False,
+    'emergency_button': False,
+    'light_curtain': False,
+    'emergency_cord': False
+}
+
+interlock_signals_right = {
+    'enable': False,
+    'detection': False,
+    'emergency_button': False,
+    'light_curtain': False,
+    'emergency_cord': False
+}
+
+async def handle_person_detected(request):
+    global detections_left, last_detection_time_left, last_data_received_time_left
+    global detections_right, last_detection_time_right, last_data_received_time_right
+
+    side = request.match_info['side']
+    try:
+        current_time = time.time()
+        if side == 'left':
+            last_data_received_time_left = current_time
+            detections_left = True
+            last_detection_time_left = current_time
+        elif side == 'right':
+            last_data_received_time_right = current_time
+            detections_right = True
+            last_detection_time_right = current_time
+
+        return web.Response(text=f"{side.capitalize()} person_detected processed", status=200)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
+
+async def handle_generic(request):
+    side = request.match_info['side']
+    operation = request.match_info['operation']
+
+    try:
+        data = await request.json()
+        value = data.get('value', False)  # Default to False if not provided
+
+        if side == 'left':
+            interlock_signals_left[operation] = value
+        elif side == 'right':
+            interlock_signals_right[operation] = value
+
+        return web.Response(text=f"{side.capitalize()} {operation} set to {value}", status=200)
+    except json.JSONDecodeError:
+        return web.Response(text="Invalid JSON data", status=400)
+    except Exception as e:
+        return web.Response(text=str(e), status=500)
 
 def start_api(port=80):
     app = web.Application()
     app.add_routes([
-        web.post('/left', handle_left),
-        web.post('/right', handle_right)
+        web.post('/{side}/person_detected', handle_person_detected),
+        web.post('/{side}/{operation}', handle_generic)
     ])
     web.run_app(app, port=port)
-
-async def handle_left(request):
-    global detections_left, last_detection_time_left, last_data_received_time_left
-    try:
-        last_data_received_time_left = time.time()
-        detections_left = True
-        last_detection_time_left = time.time()           
-
-        return web.Response(text="Detection processed", status=200)
-    except Exception as e:
-        return web.Response(text=str(e), status=500)
-
-async def handle_right(request):
-    global detections_right, last_detection_time_right, last_data_received_time_right
-    try:
-        last_data_received_time_right = time.time()
-        detections_right = True
-        last_detection_time_right = time.time()           
-
-        return web.Response(text="Detection processed", status=200)
-    except Exception as e:
-        return web.Response(text=str(e), status=500)
 
 def update_blink_state():
     global blink_timer_start, blink_state_left, blink_state_right
@@ -201,6 +233,60 @@ def read_camera_right(rtsp_stream_url_right):
         # Introduce a short pause to avoid overwhelming the system in a tight loop
         time.sleep(1)
 
+def display_interlock_status(frame, side):
+    # Choose the correct dictionary based on 'side'
+    if side == 'left':
+        interlock_signals = interlock_signals_left
+    else:
+        interlock_signals = interlock_signals_right
+
+    # Exit if interlock is not enabled
+    if not interlock_signals['enable']:
+        return
+
+    # Determine active signals excluding 'enable'
+    active_signals = [signal for signal, active in interlock_signals.items() if active and signal != 'enable']
+
+    # Display additional active signals
+    translations = {
+        'detection': 'Pessoa Detectada',
+        'emergency_button': 'Botao de Emergencia Pressionado',
+        'light_curtain': 'Cortina de Luz Acionada',
+        'emergency_cord': 'Corda de Emergencia Acionada'
+    }
+
+    # Exit if no signals are active
+    if not active_signals:
+        return
+
+    current_time = int(time.time())
+    blink_on = current_time % 2 == 0  # Blink every second
+
+    # Main interlock status
+    text = "Intertravamento Ativado"
+    color = (0, 0, 255)  # Red color for text
+    background_color = (245, 245, 225)  # Light white background for main sign
+    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 3, 6)[0]
+    text_x = 390 if side == 'left' else 2320
+    text_y = 850
+
+    for i, signal in enumerate(active_signals):
+        signal_text = translations[signal]
+        signal_text_size = cv2.getTextSize(signal_text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
+        signal_y = text_y + (i + 1) * 40
+        signal_color = (0, 255, 255)  # Yellow text
+        signal_background_color = (127, 127, 127)  # Gray background
+        # Adjust the rectangle width based on the text size
+        cv2.rectangle(frame, (text_x, signal_y - 30), (text_x + signal_text_size[0] + 10, signal_y + 1), signal_background_color, -1)
+        cv2.putText(frame, signal_text, (text_x + 3, signal_y - 3), cv2.FONT_HERSHEY_SIMPLEX, 1, signal_color, 2)
+
+    if not blink_on:
+        return  # Skip drawing if it's an "off" second for blinking
+
+    # Draw the main interlock status
+    cv2.rectangle(frame, (text_x, text_y - text_size[1] - 30), (text_x + text_size[0] + 20, text_y - 10), background_color, -1)
+    cv2.putText(frame, text, (text_x + 10, text_y - 20), cv2.FONT_HERSHEY_SIMPLEX, 3, color, 8)
+
 def video_stream_loop():
     global frame_left, frame_right, frame_available_left, frame_available_right, last_frame_time_left, last_frame_time_right
     global detections_left, detections_right  # Ensure these are accessible
@@ -242,7 +328,6 @@ def video_stream_loop():
                 detections_left = []  # Clear detections for left camera
                 camera_disconnected_left.set()
 
-
         with frame_lock_right:
             if frame_available_right.is_set() or (current_time - last_frame_time_right <= camera_timeout):
                 frame_right_local = frame_right.copy()
@@ -257,7 +342,7 @@ def video_stream_loop():
         # Process these local copies
         process_frame_left(frame_left_local)
         process_frame_right(frame_right_local)
-    
+
         target_height = max(frame_left.shape[0], frame_right.shape[0])
 
         # Resize frames to have the same height (maintain aspect ratio)
@@ -271,6 +356,10 @@ def video_stream_loop():
 
         # Combine and display the processed frames
         combined_frame = np.hstack((resized_frame_left, resized_frame_right))
+
+        # Display interlock status for left and right cameras
+        #display_interlock_status(combined_frame, 'left')
+        #display_interlock_status(combined_frame, 'right')
 
         # UI for full-screen toggle
         if not full_screen:
@@ -306,7 +395,7 @@ if __name__ == "__main__":
     # Start the API server in a separate thread
     api_thread = threading.Thread(target=start_api, args=(80,), daemon=True)
     api_thread.start()
-
+    
     # Start video stream threads for the left and right cameras
     left_camera_thread = threading.Thread(target=read_camera_left, args=(rtsp_url_left,), daemon=True)
     right_camera_thread = threading.Thread(target=read_camera_right, args=(rtsp_url_right,), daemon=True)
